@@ -12,6 +12,7 @@ public class Main {
             System.out.println("Enter your login: ");
             String login = scanner.nextLine();
             ClientChatManager clientChatManager = new ClientChatManager(login);
+            if (!clientChatManager.isExistUser()) clientChatManager.addNewUser();
             clientChatManager.startRealtimeHistoryUpdate();
             clientChatManager.startChatting();
         } catch (IOException ex) {

@@ -3,9 +3,16 @@ package academy.prog;
     /add - POST(json) -> list
     /get?from=x - GET(json[])
  */
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 
 public class Utils {
     private static final String URL = "http://127.0.0.1";
@@ -26,5 +33,16 @@ public class Utils {
         } while (r != -1);
 
         return bos.toByteArray();
+    }
+
+    public static int send(String url,String json) throws IOException {
+        java.net.URL obj = new URL(url);
+        HttpURLConnection conn = (HttpURLConnection) obj.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(json.getBytes(StandardCharsets.UTF_8));
+            return conn.getResponseCode(); // 200?
+        }
     }
 }
