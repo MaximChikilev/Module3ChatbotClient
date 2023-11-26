@@ -16,16 +16,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
 
+
 public class ClientChatManager {
     private String login;
     private final Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd HH:mm:ss").create();
-    private Map<String, String> serviceCommands = new HashMap<>();
+    private ServiceCommandManager serviceCommandManager = new ServiceCommandManager();
     private Map<String, User> usersList;
 
     public ClientChatManager(String login) {
         this.login = login;
-        setAllServiceCommands();
         try {
+            changeUserStatus("Online");
             getUsersList();
         } catch (IOException e) {
 
@@ -39,18 +40,23 @@ public class ClientChatManager {
     }
 
     public void startChatting() throws IOException {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Enter your message: ");
-        while (true) {
-            String text = scanner.nextLine();
-            if (text.isEmpty()) break;
-            if (isServiceCommand(text)) {
-                prepareServiceCommand(text);
-            } else {
-                sendNewMessage(text);
+        try{
+            Scanner scanner = new Scanner(System.in);
+            System.out.println("Enter your message: ");
+            while (true) {
+                String text = scanner.nextLine();
+                if (text.isEmpty()) break;
+                if (isServiceCommand(text)) {
+                    prepareServiceCommand(text);
+                } else {
+                    sendNewMessage(text);
+                }
             }
+            scanner.close();
+        } finally {
+            changeUserStatus("Offline");
         }
-        scanner.close();
+
     }
 
     private void getUsersList() throws IOException {
@@ -68,33 +74,15 @@ public class ClientChatManager {
         }
     }
 
-    private void setAllServiceCommands() {
-        serviceCommands.put("/service showUsersList", "showUsersList");
-        serviceCommands.put("/service changeStatus", "changeUserStatus");
-    }
-
     public boolean isServiceCommand(String command) {
-        Boolean result = false;
-        if(command.substring(0,8).equals("/service")) result = true;
-        return result;
-    }
-    private String getServiceCommand(String fullCommand){
-        return fullCommand.split(":")[0];
-    }
-    private  String[] extractCommandParams(String fullCommand){
-        int openBracketIndex = fullCommand.indexOf("(");
-        if(openBracketIndex!=-1){
-            int closeBracketIndex = fullCommand.indexOf(")");
-            return fullCommand.substring(openBracketIndex,closeBracketIndex).split(",");
-        }
-        return new String[0];
+        return serviceCommandManager.isServiceCommand(command);
     }
 
     public void prepareServiceCommand(String command) {
-        String serviceCommand = getServiceCommand(command);
-        String[] commandParams = extractCommandParams(command);
+        String serviceCommand = serviceCommandManager.getServiceCommand(command);
+        String[] commandParams = serviceCommandManager.extractCommandParams(command);
         try {
-            executeServiceCommand(serviceCommand,commandParams);
+            executeServiceCommand(serviceCommand, commandParams);
         } catch (NoSuchMethodException e) {
             e.printStackTrace();
         } catch (InvocationTargetException e) {
@@ -103,23 +91,30 @@ public class ClientChatManager {
             e.printStackTrace();
         }
     }
+
     private void executeServiceCommand(String serviceCommand, String[] commandParams) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-        String methodName = serviceCommands.get(serviceCommand);
+        String methodName = serviceCommandManager.getMethodName(serviceCommand);
         Class clientChatManagerClass = ClientChatManager.class;
         Method[] methods = clientChatManagerClass.getDeclaredMethods();
-        for(Method methodsElement:methods){
-            if(methodsElement.getName().equals(methodName)){
+        for (Method methodsElement : methods) {
+            if (methodsElement.getName().equals(methodName)) {
                 Class<?>[] parameterTypes = methodsElement.getParameterTypes();
+                if (parameterTypes.length != commandParams.length) throw new IllegalArgumentException();
                 Method someMethod = clientChatManagerClass.getMethod(methodName, parameterTypes);
-                someMethod.invoke(this, castCommandsParams(parameterTypes,commandParams));
+                someMethod.invoke(this, castCommandsParams(parameterTypes, commandParams));
             }
         }
     }
-    private Object[] castCommandsParams(Class<?>[] parameterTypes,String[] commandParams){
-        if(commandParams.length!=0){
+
+    private Object[] castCommandsParams(Class<?>[] parameterTypes, String[] commandParams) {
+        if (commandParams.length != 0) {
             Object[] paramsArray = new Object[parameterTypes.length];
-            for (int i=0;i<commandParams.length;i++){
-                paramsArray[i] = parameterTypes[i].cast(commandParams[i]);
+            try {
+                for (int i = 0; i < commandParams.length; i++) {
+                    paramsArray[i] = parameterTypes[i].cast(commandParams[i]);
+                }
+            } catch (IllegalArgumentException e) {
+                e.printStackTrace();
             }
             return paramsArray;
         }
@@ -178,9 +173,13 @@ public class ClientChatManager {
     }
 
     public void changeUserStatus(String status) throws IOException {
-        URL url = new URL(Utils.getURL() + "/changeStatus?login="+login+"&status="+status);
+        URL url = new URL(Utils.getURL() + "/changeStatus?login=" + login + "&status=" + status);
         HttpURLConnection http = (HttpURLConnection) url.openConnection();
-        //http.getResponseCode();
+        http.getResponseCode();
         getUsersList();
+    }
+
+    public void showServiceCommand() {
+        serviceCommandManager.showServiceCommands();
     }
 }

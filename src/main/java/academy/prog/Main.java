@@ -12,6 +12,8 @@ public class Main {
             System.out.println("Enter your login: ");
             String login = scanner.nextLine();
             ClientChatManager clientChatManager = new ClientChatManager(login);
+            System.out.println("Enter - /s showServiceCommand to see service command list");
+            System.out.println("Enter @Username to send private message");
             if (!clientChatManager.isExistUser()) clientChatManager.addNewUser();
             clientChatManager.startRealtimeHistoryUpdate();
             clientChatManager.startChatting();
