@@ -1,0 +1,55 @@
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.*;
+
+public class AsciiAlphabetGenerator {
+    public void generate(){
+        int width = 30;
+        int height = 30;
+
+        File file = new File("./src/main/resources/Data.txt");
+        String line = "A,Q,W,E,R,T,Y,U,I,O,P,S,D,F,G,H,J,K,L,Z,X,C,V,B,N,M";
+        String[] alphabet = line.split(",");
+        try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file))) {
+            for (String element : alphabet) {
+                BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+                Graphics g = image.getGraphics();
+                g.setFont(new Font("SansSerif", Font.BOLD, 18));
+                Graphics2D graphics = (Graphics2D) g;
+                graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                        RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                graphics.drawString(element, 10, 20);
+                StringBuilder xxx = new StringBuilder();
+                xxx.append(element+";");
+                for (int y = 0; y < height; y++) {
+                    StringBuilder sb = new StringBuilder();
+                    for (int x = 0; x < width; x++) {
+                        sb.append(image.getRGB(x, y) == -16777216 ? " " : "$");
+                    }
+                    if (sb.toString().trim().isEmpty()) {
+                        continue;
+                    }
+                    xxx.append(sb + ";");
+                }
+                bufferedWriter.write(xxx.toString());
+                bufferedWriter.newLine();
+            }
+        } catch (IOException e) {
+
+        }
+        try {
+            BufferedReader bufferedReader = new BufferedReader(new FileReader(file));
+            while (bufferedReader.ready()) {
+                StringBuilder ccc = new StringBuilder();
+                String [] al = bufferedReader.readLine().split(";");
+                for (String element:al){
+                    ccc.append(element+"\n");
+                }
+            }
+        } catch (FileNotFoundException e) {
+
+        } catch (IOException e) {
+
+        }
+    }
+}

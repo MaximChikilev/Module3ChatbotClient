@@ -45,4 +45,18 @@ public class Utils {
             return conn.getResponseCode(); // 200?
         }
     }
+
+    public static String getStringFromResponse(URL url) throws IOException {
+        String strBuf;
+        HttpURLConnection http = (HttpURLConnection) url.openConnection();
+        InputStream is = http.getInputStream();
+        try {
+            byte[] buf = Utils.responseBodyToArray(is);
+            strBuf = new String(buf, StandardCharsets.UTF_8);
+
+        } finally {
+            is.close();
+        }
+        return strBuf;
+    }
 }

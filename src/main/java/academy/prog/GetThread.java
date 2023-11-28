@@ -25,17 +25,10 @@ public class GetThread implements Runnable {
         try {
             while (!Thread.interrupted()) {
                 URL url = new URL(Utils.getURL() + "/get?from=" + allNumberOfRecords + "&sender=" + login);
-                HttpURLConnection http = (HttpURLConnection) url.openConnection();
-                InputStream is = http.getInputStream();
-                try {
-                    byte[] buf = Utils.responseBodyToArray(is);
-                    String strBuf = new String(buf, StandardCharsets.UTF_8);
-                    JsonMessages list = gson.fromJson(strBuf, JsonMessages.class);
-                    if (list != null) {
-                        for (Message m : list.getList()) System.out.println(m);
-                    }
-                } finally {
-                    is.close();
+                String strBuf = Utils.getStringFromResponse(url);
+                JsonMessages list = gson.fromJson(strBuf, JsonMessages.class);
+                if (list != null) {
+                    for (Message m : list.getList()) System.out.println(m);
                 }
                 allNumberOfRecords = getAllNumberOfRecords();
                 Thread.sleep(500);
@@ -49,12 +42,8 @@ public class GetThread implements Runnable {
         Integer numberOfRecords = 0;
         try {
             URL url = new URL(Utils.getURL() + "/getNumberOfRecords");
-            HttpURLConnection http = (HttpURLConnection) url.openConnection();
-            InputStream is = http.getInputStream();
-            byte[] buf = Utils.responseBodyToArray(is);
-            String strBuf = new String(buf, StandardCharsets.UTF_8);
+            String strBuf = Utils.getStringFromResponse(url);
             numberOfRecords = gson.fromJson(strBuf, Integer.class);
-
         } catch (MalformedURLException e) {
 
         } catch (IOException e) {
@@ -62,17 +51,4 @@ public class GetThread implements Runnable {
         }
         return numberOfRecords;
     }
-
-  /*  private byte[] responseBodyToArray(InputStream is) throws IOException {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        byte[] buf = new byte[10240];
-        int r;
-
-        do {
-            r = is.read(buf);
-            if (r > 0) bos.write(buf, 0, r);
-        } while (r != -1);
-
-        return bos.toByteArray();
-    }*/
 }

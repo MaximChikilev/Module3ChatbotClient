@@ -8,11 +8,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
 
@@ -22,6 +22,7 @@ public class ClientChatManager {
     private final Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd HH:mm:ss").create();
     private ServiceCommandManager serviceCommandManager = new ServiceCommandManager();
     private Map<String, User> usersList;
+    private String workFolder = "src/main/resources/";
 
     public ClientChatManager(String login) {
         this.login = login;
@@ -39,17 +40,17 @@ public class ClientChatManager {
         realTimeHistoryUpdater.start();
     }
 
-    public void startChatting() throws IOException {
-        try{
+    public void startChatting() throws IOException, InvocationTargetException, NoSuchMethodException, IllegalAccessException {
+        try {
             Scanner scanner = new Scanner(System.in);
             System.out.println("Enter your message: ");
             while (true) {
                 String text = scanner.nextLine();
-                if (text.isEmpty()) break;
+                if (text.equals("exit")) break;
                 if (isServiceCommand(text)) {
-                    prepareServiceCommand(text);
+                    executeServiceCommand(text);
                 } else {
-                    sendNewMessage(text);
+                    sendNewMessage(generateNewMessage(text));
                 }
             }
             scanner.close();
@@ -63,66 +64,43 @@ public class ClientChatManager {
         Type itemsMapType = new TypeToken<Map<String, User>>() {
         }.getType();
         java.net.URL url = new URL(Utils.getURL() + "/getUsers");
-        HttpURLConnection http = (HttpURLConnection) url.openConnection();
-        InputStream is = http.getInputStream();
-        try {
-            byte[] buf = Utils.responseBodyToArray(is);
-            String strBuf = new String(buf, StandardCharsets.UTF_8);
-            usersList = gson.fromJson(strBuf, itemsMapType);
-        } finally {
-            is.close();
-        }
+        String strBuf = Utils.getStringFromResponse(url);
+        usersList = gson.fromJson(strBuf, itemsMapType);
     }
 
     public boolean isServiceCommand(String command) {
         return serviceCommandManager.isServiceCommand(command);
     }
 
-    public void prepareServiceCommand(String command) {
-        String serviceCommand = serviceCommandManager.getServiceCommand(command);
-        String[] commandParams = serviceCommandManager.extractCommandParams(command);
-        try {
-            executeServiceCommand(serviceCommand, commandParams);
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void executeServiceCommand(String serviceCommand, String[] commandParams) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    private void executeServiceCommand(String serviceCommand) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         String methodName = serviceCommandManager.getMethodName(serviceCommand);
+        System.out.println(serviceCommandManager.getCommandDescription(serviceCommand));
         Class clientChatManagerClass = ClientChatManager.class;
         Method[] methods = clientChatManagerClass.getDeclaredMethods();
         for (Method methodsElement : methods) {
             if (methodsElement.getName().equals(methodName)) {
                 Class<?>[] parameterTypes = methodsElement.getParameterTypes();
-                if (parameterTypes.length != commandParams.length) throw new IllegalArgumentException();
                 Method someMethod = clientChatManagerClass.getMethod(methodName, parameterTypes);
-                someMethod.invoke(this, castCommandsParams(parameterTypes, commandParams));
+                someMethod.invoke(this, prepareCommandParams(methodsElement));
             }
         }
     }
 
-    private Object[] castCommandsParams(Class<?>[] parameterTypes, String[] commandParams) {
-        if (commandParams.length != 0) {
-            Object[] paramsArray = new Object[parameterTypes.length];
-            try {
-                for (int i = 0; i < commandParams.length; i++) {
-                    paramsArray[i] = parameterTypes[i].cast(commandParams[i]);
-                }
-            } catch (IllegalArgumentException e) {
-                e.printStackTrace();
+    private Object[] prepareCommandParams(Method method) {
+        Parameter[] parameters = method.getParameters();
+        if (parameters.length != 0) {
+            Object[] paramsArray = new Object[parameters.length];
+            Scanner scanner = new Scanner(System.in);
+            for (int i = 0; i < parameters.length; i++) {
+                System.out.print("Enter param №" + (i + 1) + ": ");
+                paramsArray[i] = parameters[i].getType().cast(scanner.nextLine());
             }
             return paramsArray;
         }
         return null;
     }
 
-    private void sendNewMessage(String text) throws IOException {
-        Message message = generateNewMessageFromText(text);
+    private void sendNewMessage(Message message) throws IOException {
         int res = message.send(Utils.getURL() + "/add");
         if (res != 200) { // 200 OK
             System.out.println("HTTP error occurred: " + res);
@@ -141,7 +119,7 @@ public class ClientChatManager {
         getUsersList();
     }
 
-    private Message generateNewMessageFromText(String text) {
+    public Message generateNewMessage(String text) {
         String recipient = "All";
         String message = text;
         if (text.substring(0, 1).equals("@")) {
@@ -181,5 +159,37 @@ public class ClientChatManager {
 
     public void showServiceCommand() {
         serviceCommandManager.showServiceCommands();
+    }
+
+    public void sendContent(String recipient, String fileName, String text) {
+        System.out.println("recipient:" + (((recipient.equals("")) ? "All" : recipient) + " File name: " + fileName + " Text: " + text));
+        Message message = new Message(login, text, (usersList.keySet().contains(recipient)) ? recipient : "All");
+        Content content = new Content(fileName, text);
+        try {
+            content.uploadContent(workFolder);
+            message.setContent(content);
+            sendNewMessage(message);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void downloadContentFromMessage(String messageId) {
+        try {
+            URL url = new URL(Utils.getURL() + "/getMessageById?messageId=" + messageId);
+            String strBuf = Utils.getStringFromResponse(url);
+            if (strBuf.equals("")) {
+                System.out.println("There is no message with this ID");
+                return;
+            }
+            Message message = gson.fromJson(strBuf, Message.class);
+            if ((message.getFrom().equals(login)) || (message.getTo().equals(login)) || (message.getTo().equals("All"))) {
+                message.getContent().downloadContent(workFolder);
+                System.out.println("File :" + message.getContent().getFileName() + " was downloaded to - " + workFolder);
+            } else System.out.println("You do not have access to this content");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 }
