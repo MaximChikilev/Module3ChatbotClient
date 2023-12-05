@@ -22,7 +22,7 @@ public class ClientChatManager {
     private final Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd HH:mm:ss").create();
     private ServiceCommandManager serviceCommandManager = new ServiceCommandManager();
     private Map<String, User> usersList;
-    private String workFolder = "src/main/resources/";
+    private String workFolder = "C:\\Users\\Maxim\\IdeaProjects\\Homeworks\\module3JavaPro\\ChatClient\\ChatClient\\src\\main\\resources\\";
 
     public ClientChatManager(String login) {
         this.login = login;
@@ -184,6 +184,10 @@ public class ClientChatManager {
             }
             Message message = gson.fromJson(strBuf, Message.class);
             if ((message.getFrom().equals(login)) || (message.getTo().equals(login)) || (message.getTo().equals("All"))) {
+                if (message.getContent() == null) {
+                    System.out.println("There is not content in " + messageId + " message");
+                    return;
+                }
                 message.getContent().downloadContent(workFolder);
                 System.out.println("File :" + message.getContent().getFileName() + " was downloaded to - " + workFolder);
             } else System.out.println("You do not have access to this content");

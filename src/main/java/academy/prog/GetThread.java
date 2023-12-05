@@ -32,7 +32,7 @@ public class GetThread implements Runnable {
                 }
                 allNumberOfRecords = getAllNumberOfRecords();
                 Thread.sleep(500);
-            }
+                }
         } catch (Exception ex) {
             ex.printStackTrace();
         }
